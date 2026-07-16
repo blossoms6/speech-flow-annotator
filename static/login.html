@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="登录或注册 Speech Flow 英语语流标注器。">
+  <title>登录 · Speech Flow</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="login-page">
+  <div class="grain"></div>
+  <main class="login-shell">
+    <section class="login-story" aria-label="产品介绍">
+      <a class="auth-brand" href="/login">
+        <span class="brand-mark">SF</span>
+        <span><b>Speech Flow</b><small>英语语流标注器 1.0</small></span>
+      </a>
+      <div>
+        <p class="eyebrow">LISTEN · SEE · IMITATE</p>
+        <h1>先听见节奏，<br>再<strong>读出英语。</strong></h1>
+        <p>把重音、弱读、连读、失爆、停顿与语调直接呈现在文稿中。登录后，每个账户拥有独立的分析任务与导出文件。</p>
+      </div>
+      <p class="login-footnote">音频分析在本机处理 · 账户数据保存在这台电脑上</p>
+    </section>
+
+    <section class="auth-panel" aria-labelledby="authTitle">
+      <div class="auth-card">
+        <p class="eyebrow">PRIVATE WORKSPACE</p>
+        <h2 id="authTitle">欢迎回来</h2>
+        <p id="authIntro" class="auth-intro">登录后进入你的英语语流练习空间。</p>
+        <div class="auth-tabs" role="tablist" aria-label="账户操作">
+          <button type="button" class="auth-tab active" data-auth-mode="login" role="tab" aria-selected="true">登录</button>
+          <button type="button" class="auth-tab" data-auth-mode="register" role="tab" aria-selected="false">注册</button>
+        </div>
+        <form id="authForm" class="auth-form">
+          <label for="authUsername">用户名
+            <input id="authUsername" name="username" type="text" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]+" autocomplete="username" placeholder="3–32位字母、数字或下划线" required autofocus>
+          </label>
+          <label for="authPassword">密码
+            <input id="authPassword" name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="至少8位" required>
+          </label>
+          <label id="authConfirmRow" for="authConfirm" hidden>确认密码
+            <input id="authConfirm" name="confirm_password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="再次输入密码">
+          </label>
+          <button id="authSubmit" class="auth-submit" type="submit"><span>登录并进入</span><span>→</span></button>
+          <div id="authError" class="error-message" role="alert" hidden></div>
+        </form>
+        <a id="guestAccess" class="guest-access" href="/">暂不登录，以游客身份使用 <span>→</span></a>
+        <p class="auth-note">用户名不区分大小写。密码仅保存为不可逆哈希。</p>
+      </div>
+    </section>
+  </main>
+  <script src="/static/auth.js" defer></script>
+</body>
+</html>

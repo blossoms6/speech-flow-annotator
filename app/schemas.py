@@ -109,3 +109,17 @@ class JobPublic(BaseModel):
 class ReanalyzeRequest(BaseModel):
     transcript: str = Field(min_length=1, max_length=100_000)
     accent: str = "general-american"
+
+
+class AuthCredentials(BaseModel):
+    username: str = Field(min_length=3, max_length=32)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class AdminUserUpdate(BaseModel):
+    is_active: bool | None = None
+    is_admin: bool | None = None
+
+
+class AdminCleanupRequest(BaseModel):
+    guest_older_than_days: int = Field(default=30, ge=1, le=3650)

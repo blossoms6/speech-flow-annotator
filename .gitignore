@@ -8,8 +8,11 @@ htmlcov/
 .venv/
 data/jobs/*
 !data/jobs/.gitkeep
+data/auth.db*
 models/
 .env
+.env.production
+backups/
 *.log
 .DS_Store
 Thumbs.db

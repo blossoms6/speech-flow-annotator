@@ -266,6 +266,20 @@ def align_reference_to_asr(reference: str, asr_words: list[TimedToken], duration
     return output
 
 
+def transcript_match_score(reference: str, asr_words: list[TimedToken]) -> float:
+    """Measure how much of the shorter text is supported by Whisper word order."""
+    reference_words = [token.normalized for token in tokenize_transcript(reference)]
+    recognized_words = [word.normalized for word in asr_words]
+    if not reference_words or not recognized_words:
+        return 0.0
+    if min(len(reference_words), len(recognized_words)) < 4:
+        return 1.0
+    matcher = difflib.SequenceMatcher(a=recognized_words, b=reference_words, autojunk=False)
+    matched = sum(block.size for block in matcher.get_matching_blocks())
+    coverage = matched / min(len(reference_words), len(recognized_words))
+    return round(max(matcher.ratio(), coverage), 3)
+
+
 def build_transcript_result(
     audio: AudioData,
     features: AcousticFeatures,
@@ -278,14 +292,18 @@ def build_transcript_result(
     supplied = normalize_transcript(supplied_transcript)
     asr_text = ""
     asr_words: list[TimedToken] = []
+    rejected_reference = False
 
     if auto_transcribe:
         asr_text, asr_words = transcribe_audio(audio.path, model_name, device, progress)
 
     if supplied and asr_words:
-        words = align_reference_to_asr(supplied, asr_words, audio.duration)
-        quality = float(np.mean([word.confidence for word in words])) if words else 0.0
-        return TranscriptResult(supplied, "user+whisper", words, round(quality, 3))
+        match_score = transcript_match_score(supplied, asr_words)
+        if match_score >= 0.35:
+            words = align_reference_to_asr(supplied, asr_words, audio.duration)
+            quality = float(np.mean([word.confidence for word in words])) if words else 0.0
+            return TranscriptResult(supplied, "user+whisper", words, round(quality, 3))
+        rejected_reference = True
     if asr_words:
         tokens = tokenize_transcript(asr_text)
         # Whisper punctuation is reconstructed from segment text; timings come from ASR tokens.
@@ -310,7 +328,8 @@ def build_transcript_result(
             [TextToken(word.text, word.normalized, word.punctuation_after) for word in words]
         )
         quality = float(np.mean([word.confidence for word in words])) if words else 0.0
-        return TranscriptResult(transcript, "whisper", words, round(quality, 3))
+        source = "whisper-reference-mismatch" if rejected_reference else "whisper"
+        return TranscriptResult(transcript, source, words, round(quality, 3))
     if supplied:
         words = estimate_words_from_text(supplied, audio, features)
         return TranscriptResult(supplied, "user-estimated", words, 0.36)

@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from app.config import settings
+
 
 TYPE_NAMES = {
     "pause": "停顿",
@@ -222,7 +224,13 @@ def _browser_executable() -> Path | None:
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    discovered = shutil.which("msedge") or shutil.which("chrome")
+    discovered = (
+        shutil.which("msedge")
+        or shutil.which("chrome")
+        or shutil.which("google-chrome")
+        or shutil.which("chromium")
+        or shutil.which("chromium-browser")
+    )
     return Path(discovered) if discovered else None
 
 
@@ -243,6 +251,8 @@ def render_pdf(result: dict, output_path: Path) -> Path:
         f"--print-to-pdf={output_path}",
         html_path.resolve().as_uri(),
     ]
+    if settings.chrome_no_sandbox:
+        command.insert(1, "--no-sandbox")
     completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=90)
     if completed.returncode != 0 or not output_path.exists() or output_path.stat().st_size < 1000:
         detail = completed.stderr.strip() or completed.stdout.strip() or "浏览器打印没有生成文件。"
@@ -261,7 +271,7 @@ def render_standalone_html(result: dict, audio_path: Path | None) -> str:
 <title>{title} · 英语语流分析</title>
 <style>
 body{{font-family:system-ui,sans-serif;max-width:980px;margin:40px auto;padding:0 24px;background:#f5f2ea;color:#17202a}}
-h1{{font-size:28px}} audio{{width:100%}} #text{{font-size:25px;line-height:2.2;background:white;padding:28px;border-radius:18px}}
+h1{{font-size:28px}} audio{{width:100%}} #text{{font-size:21px;line-height:1.85;background:white;padding:28px;border-radius:18px}}
 .word{{cursor:pointer;border-radius:5px;padding:2px}} .word:hover{{background:#ffe8a3}} .stress{{font-weight:800;color:#c8472c}}
 .weak{{color:#718096;font-size:.86em}} .link{{color:#247ba0;font-weight:800}} .pause{{color:#7a4fa3;font-weight:800}}
 .note{{color:#667085}} table{{border-collapse:collapse;width:100%}} td,th{{padding:8px;border-bottom:1px solid #ddd;text-align:left}}
