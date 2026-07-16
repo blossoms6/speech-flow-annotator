@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从英文音频生成重音、停顿、节奏、语调和实验性语流标注。">
+  <title>Speech Flow · 英语语流标注器</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="site-header">
+    <a class="brand" href="/">
+      <span class="brand-mark">SF</span>
+      <span><b>Speech Flow</b><small>英语语流标注器 1.0</small></span>
+    </a>
+    <div id="engineStatus" class="engine-status">正在检查分析引擎…</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">LISTEN · SEE · IMITATE</p>
+        <h1>让英语的<strong>声音结构</strong><br>直接显现在文稿里。</h1>
+      </div>
+      <p class="hero-copy">上传英文音频分析实际读法，或者只粘贴文稿生成标准朗读建议与自然神经参考音。连读、弱读与失爆以明确的来源和置信度呈现。</p>
+    </section>
+
+    <section id="uploadCard" class="card upload-card">
+      <div class="step-title"><span>01</span><div><h2>准备音频</h2><p>支持 MP3、WAV、M4A、FLAC、MP4 和 WebM</p></div></div>
+      <div class="mode-switch" role="group" aria-label="输入方式">
+        <button class="mode-button active" data-mode="audio"><b>音频分析</b><small>分析实际怎么读</small></button>
+        <button class="mode-button" data-mode="text"><b>只有文稿</b><small>朗读稿＋参考音频</small></button>
+      </div>
+      <div id="dropZone" class="drop-zone audio-only" tabindex="0" role="button">
+        <input id="audioFile" type="file" hidden accept="audio/*,video/mp4,video/webm">
+        <div class="upload-icon">↥</div>
+        <div><b id="fileLabel">拖入音频，或点击选择文件</b><small id="fileMeta">建议单人、清晰录音，1.0 最长支持30分钟</small></div>
+      </div>
+
+      <label id="transcriptLabel" class="field-label" for="transcript">英文原文 <span>可选，但提供后更容易校正</span></label>
+      <textarea id="transcript" rows="6" placeholder="Paste the English transcript here…"></textarea>
+
+      <div class="settings-grid">
+        <label class="toggle-row audio-only">
+          <input id="autoTranscribe" type="checkbox">
+          <span class="toggle"></span>
+          <span><b>自动转写</b><small>未提供原文时必须开启</small></span>
+        </label>
+        <label class="select-field audio-only">转写模型
+          <select id="modelName">
+            <option value="tiny.en">tiny.en · 快速</option>
+            <option value="base.en">base.en · 推荐</option>
+            <option value="small.en">small.en · 更准确</option>
+          </select>
+        </label>
+        <label class="select-field">分析口音
+          <select id="accent">
+            <option value="general-american">通用美音</option>
+            <option value="received-pronunciation">标准英音</option>
+          </select>
+        </label>
+        <label class="select-field text-only">参考声音
+          <select id="ttsEngine">
+            <option value="neural">自然神经音 · 推荐（需联网）</option>
+            <option value="local">Windows 基础音 · 离线</option>
+          </select>
+        </label>
+      </div>
+      <button id="analyzeButton" class="primary-button"><span id="analyzeButtonLabel">开始分析</span><span>→</span></button>
+      <div id="formError" class="error-message" hidden></div>
+    </section>
+
+    <section id="progressCard" class="card progress-card" hidden>
+      <div class="processing-orb"><span></span></div>
+      <div class="progress-copy"><p class="eyebrow">ANALYZING</p><h2 id="progressStage">正在准备…</h2><p id="progressMessage"></p></div>
+      <div class="progress-track"><div id="progressBar"></div></div><b id="progressPercent">0%</b>
+    </section>
+
+    <section id="resultSection" hidden>
+      <div class="result-heading">
+        <div><p class="eyebrow">ANALYSIS COMPLETE</p><h2>交互式语流文稿</h2></div>
+        <div class="export-menu">
+          <a data-export="pdf">PDF</a><a data-export="html">HTML</a><a data-export="md">Markdown</a><a data-export="srt">SRT</a><a data-export="json">JSON</a>
+        </div>
+      </div>
+
+      <div class="result-grid">
+        <div class="result-main">
+          <section id="playerCard" class="card player-card">
+            <div class="audio-meta"><div><b id="audioName"></b><span id="audioStats"></span></div><span id="qualityBadge" class="badge"></span></div>
+            <audio id="audioPlayer" controls preload="metadata"></audio>
+            <div class="playback-tools">
+              <label>速度 <select id="playbackRate"><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option></select></label>
+              <button id="loopButton" class="subtle-button">循环所选片段</button>
+              <span id="selectionLabel">点击文稿中的单词开始精听</span>
+            </div>
+            <canvas id="contourCanvas" height="190"></canvas>
+            <div class="chart-legend"><span class="pitch-key">音高 F0</span><span class="volume-key">音量</span></div>
+          </section>
+
+          <section class="card transcript-card">
+            <div class="annotation-toolbar">
+              <label><input type="checkbox" data-feature="prominence" checked> 重音</label>
+              <label><input type="checkbox" data-feature="weak_form" checked> 弱读</label>
+              <label><input type="checkbox" data-feature="linking" checked> 连读</label>
+              <label><input type="checkbox" data-feature="unreleased_stop" checked> 失爆</label>
+              <label><input type="checkbox" data-feature="intonation" checked> 语调</label>
+              <label><input type="checkbox" data-feature="pause" checked> 停顿</label>
+            </div>
+            <div id="annotatedTranscript" class="annotated-transcript"></div>
+            <div class="legend">
+              <span><i class="stress-swatch"></i>重音</span><span><b class="link-swatch">‿</b>连读</span><span><b class="weak-swatch">/tə/</b>弱读</span><span><b class="stop-swatch">t̚</b>失爆</span><span><b class="tone-swatch">↗ ↘</b>语调</span><span><b>/ //</b>停顿</span>
+            </div>
+          </section>
+
+          <section class="card phrases-card">
+            <div class="section-line"><div><p class="eyebrow">RHYTHM MAP</p><h3>意群与强弱节奏</h3></div><span id="rhythmSummary"></span></div>
+            <div id="phraseList"></div>
+          </section>
+
+          <section class="card correction-card">
+            <details>
+              <summary><span><b>文稿有误？</b><small id="correctionHint">修改后重新分析；关闭自动转写时会使用能量估计时间轴</small></span><span>＋</span></summary>
+              <textarea id="correctedTranscript" rows="6"></textarea>
+              <button id="reanalyzeButton" class="secondary-button">使用修正文稿重新分析</button>
+            </details>
+          </section>
+        </div>
+
+        <aside class="result-aside">
+          <section id="detailCard" class="card detail-card sticky">
+            <p class="eyebrow">WORD INSPECTOR</p>
+            <div id="emptyDetail" class="empty-detail"><span>◎</span><p>点击文稿中的单词，查看时间、声学特征、语流判断与置信度。</p></div>
+            <div id="wordDetail" hidden></div>
+          </section>
+          <section class="card summary-card">
+            <p class="eyebrow">SUMMARY</p><h3 id="summaryHeading">检测摘要</h3><div id="summaryGrid"></div>
+          </section>
+          <section class="card limitations-card"><p class="eyebrow">QUALITY NOTES</p><div id="limitations"></div></section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>Speech Flow Annotator 1.0</span><span>音频分析本地处理 · 自然神经参考音需要联网</span></footer>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

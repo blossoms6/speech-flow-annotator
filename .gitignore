@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+data/jobs/*
+!data/jobs/.gitkeep
+models/
+.env
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
