@@ -11,6 +11,8 @@ apt-get install -y \
     fonts-liberation \
     fonts-noto-cjk \
     libgomp1 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
     nginx \
     python3-pip \
     python3-venv

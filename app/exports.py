@@ -236,27 +236,40 @@ def _browser_executable() -> Path | None:
 
 def render_pdf(result: dict, output_path: Path) -> Path:
     browser = _browser_executable()
-    if browser is None:
-        raise RuntimeError("未找到 Microsoft Edge 或 Google Chrome，无法生成 PDF。")
     html_path = output_path.with_suffix(".print.html")
     html_path.write_text(render_print_html(result), encoding="utf-8")
-    profile_dir = output_path.parent / ".pdf-browser-profile"
-    command = [
-        str(browser),
-        "--headless=new",
-        "--disable-gpu",
-        "--no-pdf-header-footer",
-        "--run-all-compositor-stages-before-draw",
-        f"--user-data-dir={profile_dir}",
-        f"--print-to-pdf={output_path}",
-        html_path.resolve().as_uri(),
-    ]
-    if settings.chrome_no_sandbox:
-        command.insert(1, "--no-sandbox")
-    completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=90)
-    if completed.returncode != 0 or not output_path.exists() or output_path.stat().st_size < 1000:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "浏览器打印没有生成文件。"
-        raise RuntimeError(f"PDF 生成失败：{detail}")
+    browser_error = "未找到 Chromium、Microsoft Edge 或 Google Chrome。"
+    if browser is not None:
+        profile_dir = output_path.parent / ".pdf-browser-profile"
+        command = [
+            str(browser),
+            "--headless=new",
+            "--disable-gpu",
+            "--no-pdf-header-footer",
+            "--run-all-compositor-stages-before-draw",
+            f"--user-data-dir={profile_dir}",
+            f"--print-to-pdf={output_path}",
+            html_path.resolve().as_uri(),
+        ]
+        if settings.chrome_no_sandbox:
+            command.insert(1, "--no-sandbox")
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=90)
+            if completed.returncode == 0 and output_path.exists() and output_path.stat().st_size >= 1000:
+                return output_path
+            browser_error = completed.stderr.strip() or completed.stdout.strip() or "浏览器打印没有生成文件。"
+        except subprocess.SubprocessError as exc:
+            browser_error = str(exc)
+
+    try:
+        from weasyprint import HTML
+
+        output_path.unlink(missing_ok=True)
+        HTML(filename=html_path).write_pdf(output_path)
+    except Exception as exc:
+        raise RuntimeError(f"PDF 生成失败：浏览器后端：{browser_error}；WeasyPrint 后端：{exc}") from exc
+    if not output_path.exists() or output_path.stat().st_size < 1000:
+        raise RuntimeError(f"PDF 生成失败：浏览器后端：{browser_error}；WeasyPrint 没有生成有效文件。")
     return output_path
 
 
