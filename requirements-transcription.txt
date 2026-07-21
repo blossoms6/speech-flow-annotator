@@ -1,4 +1,4 @@
 -r requirements.txt
-huggingface-hub>=0.21,<1
+huggingface-hub>=0.21,<2
 ctranslate2>=4.6,<4.7
 faster-whisper>=1.2,<2
