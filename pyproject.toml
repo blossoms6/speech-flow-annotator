@@ -27,7 +27,7 @@ dependencies = [
 transcription = [
   "faster-whisper>=1.2,<2",
   "huggingface-hub>=0.21,<1",
-  "ctranslate2>=4.6,<4.7",
+  "ctranslate2>=4.6,<4.9",
 ]
 test = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
