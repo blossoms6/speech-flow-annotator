@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import time
 from pathlib import Path
 
@@ -124,7 +125,7 @@ def test_health_and_index(client: TestClient) -> None:
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.json()["version"] == "1.0.0"
-    assert health.json()["local_tts_available"] is True
+    assert health.json()["local_tts_available"] is (sys.platform == "win32")
     assert client.get("/").status_code == 200
 
 
@@ -170,12 +171,18 @@ def test_text_only_standard_reading_job_as_guest(guest_client: TestClient) -> No
     assert status["status"] == "completed", status.get("error")
     result = guest_client.get(f"/api/jobs/{job_id}/result").json()
     assert result["input_mode"] == "text"
-    assert result["audio"] is not None
-    assert result["audio"]["duration"] > 0
-    assert result["summary"]["generated_voice"]
-    expected_rate = result["summary"]["rhythm"]["syllables"] / result["audio"]["duration"]
-    assert abs(result["summary"]["rhythm"]["syllables_per_second"] - expected_rate) < 0.02
     assert result["transcript_source"] == "text-standard"
     assert result["phrases"][0]["intonation_symbol"] == "↘"
-    assert guest_client.get(f"/api/jobs/{job_id}/audio").status_code == 200
+    if sys.platform == "win32":
+        assert result["audio"] is not None
+        assert result["audio"]["duration"] > 0
+        assert result["summary"]["generated_voice"]
+        expected_rate = result["summary"]["rhythm"]["syllables"] / result["audio"]["duration"]
+        assert abs(result["summary"]["rhythm"]["syllables_per_second"] - expected_rate) < 0.02
+        assert guest_client.get(f"/api/jobs/{job_id}/audio").status_code == 200
+    else:
+        assert result["audio"] is None
+        assert result["summary"].get("generated_voice") is None
+        assert "Windows System.Speech" in result["limitations"][0]
+        assert guest_client.get(f"/api/jobs/{job_id}/audio").status_code == 404
     assert guest_client.get(f"/api/jobs/{job_id}/export/html").status_code == 200
