@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -28,7 +29,7 @@ class JobStore:
             raise KeyError(job_id)
         return path
 
-    def create(self, original_name: str, options: dict[str, Any]) -> dict[str, Any]:
+    def create(self, original_name: str, options: dict[str, Any], owner_id: str) -> dict[str, Any]:
         job_id = uuid.uuid4().hex
         job_dir = self.root / job_id
         job_dir.mkdir(parents=True, exist_ok=False)
@@ -43,6 +44,7 @@ class JobStore:
             "created_at": now,
             "updated_at": now,
             "original_name": original_name,
+            "owner_id": owner_id,
             "options": options,
             "result_url": None,
         }
@@ -68,6 +70,111 @@ class JobStore:
         if not path.exists():
             raise FileNotFoundError(job_id)
         return json.loads(path.read_text(encoding="utf-8"))
+
+    def transfer_owner(self, previous_owner_id: str, new_owner_id: str) -> int:
+        transferred = 0
+        with self._lock:
+            for job_file in self.root.glob("*/job.json"):
+                try:
+                    data = json.loads(job_file.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if data.get("owner_id") != previous_owner_id:
+                    continue
+                data["owner_id"] = new_owner_id
+                data["updated_at"] = utc_now()
+                self._write(job_file, data)
+                transferred += 1
+        return transferred
+
+    @staticmethod
+    def _directory_size(path: Path) -> int:
+        total = 0
+        for item in path.rglob("*"):
+            try:
+                if item.is_file():
+                    total += item.stat().st_size
+            except OSError:
+                continue
+        return total
+
+    def list_jobs(
+        self,
+        query: str = "",
+        status: str = "",
+        owner_type: str = "",
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        jobs: list[dict[str, Any]] = []
+        needle = query.strip().lower()
+        with self._lock:
+            for job_file in self.root.glob("*/job.json"):
+                try:
+                    data = json.loads(job_file.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                owner_id = str(data.get("owner_id") or "")
+                current_owner_type = "guest" if owner_id.startswith("guest:") else "user"
+                if status and data.get("status") != status:
+                    continue
+                if owner_type and current_owner_type != owner_type:
+                    continue
+                searchable = " ".join(
+                    str(data.get(key) or "") for key in ("id", "original_name", "message", "error")
+                ).lower()
+                if needle and needle not in searchable:
+                    continue
+                jobs.append(
+                    {
+                        **data,
+                        "owner_type": current_owner_type,
+                        "size_bytes": self._directory_size(job_file.parent),
+                    }
+                )
+        jobs.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+        return jobs[:limit]
+
+    def stats(self) -> dict[str, Any]:
+        jobs = self.list_jobs(limit=1_000_000)
+        counts = {name: 0 for name in ("queued", "processing", "completed", "failed")}
+        guest_jobs = 0
+        total_bytes = 0
+        for job in jobs:
+            current_status = str(job.get("status") or "")
+            if current_status in counts:
+                counts[current_status] += 1
+            guest_jobs += int(job.get("owner_type") == "guest")
+            total_bytes += int(job.get("size_bytes") or 0)
+        return {
+            "total": len(jobs),
+            "guest": guest_jobs,
+            "registered": len(jobs) - guest_jobs,
+            "counts": counts,
+            "size_bytes": total_bytes,
+        }
+
+    def delete(self, job_id: str) -> None:
+        with self._lock:
+            path = self.directory(job_id)
+            shutil.rmtree(path)
+
+    def cleanup_guest_jobs(self, older_than: datetime) -> list[str]:
+        deleted: list[str] = []
+        for job in self.list_jobs(owner_type="guest", limit=1_000_000):
+            if job.get("status") in {"queued", "processing"}:
+                continue
+            try:
+                created_at = datetime.fromisoformat(str(job.get("created_at")))
+            except (TypeError, ValueError):
+                continue
+            if created_at >= older_than:
+                continue
+            try:
+                self.delete(job["id"])
+            except (KeyError, OSError):
+                continue
+            deleted.append(job["id"])
+        return deleted
 
     @staticmethod
     def _write(path: Path, data: dict[str, Any]) -> None:

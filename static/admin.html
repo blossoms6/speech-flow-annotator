@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>管理后台 · Speech Flow</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="admin-page">
+  <div class="grain"></div>
+  <header class="admin-header">
+    <a class="brand" href="/">
+      <span class="brand-mark">SF</span>
+      <span><b>Speech Flow</b><small>管理员控制台</small></span>
+    </a>
+    <div class="header-actions">
+      <span id="adminIdentity" class="current-user"></span>
+      <a class="admin-back" href="/">返回分析台</a>
+      <button id="adminLogout" class="logout-button" type="button">退出</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="admin-title-row">
+      <div><p class="eyebrow">CONTROL CENTER</p><h1>管理员后台</h1><p>查看账户、任务、存储和服务状态。</p></div>
+      <button id="refreshAdmin" class="admin-primary" type="button">刷新数据</button>
+    </section>
+
+    <div id="adminToast" class="admin-toast" role="status" hidden></div>
+
+    <section id="overviewGrid" class="admin-stats" aria-label="系统概览">
+      <article><span>注册用户</span><b id="statUsers">—</b><small id="statActiveUsers">—</small></article>
+      <article><span>全部任务</span><b id="statJobs">—</b><small id="statGuestJobs">—</small></article>
+      <article><span>处理中</span><b id="statProcessing">—</b><small>排队与执行</small></article>
+      <article><span>失败任务</span><b id="statFailed">—</b><small>等待检查</small></article>
+      <article><span>任务文件</span><b id="statStorage">—</b><small id="statDiskFree">—</small></article>
+      <article><span>在线会话</span><b id="statSessions">—</b><small id="statAdmins">—</small></article>
+    </section>
+
+    <section class="admin-layout">
+      <div class="admin-column">
+        <section class="admin-panel">
+          <div class="admin-panel-head">
+            <div><p class="eyebrow">USERS</p><h2>用户管理</h2></div>
+            <form id="userSearch" class="admin-filter"><input id="userQuery" type="search" placeholder="搜索用户名"><button type="submit">搜索</button></form>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>用户</th><th>状态</th><th>会话</th><th>注册时间</th><th>操作</th></tr></thead>
+              <tbody id="userRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="admin-panel">
+          <div class="admin-panel-head jobs-head">
+            <div><p class="eyebrow">JOBS</p><h2>任务管理</h2></div>
+            <form id="jobFilter" class="admin-filter admin-filter-wide">
+              <input id="jobQuery" type="search" placeholder="任务ID或文件名">
+              <select id="jobStatus"><option value="">全部状态</option><option value="queued">排队</option><option value="processing">处理中</option><option value="completed">已完成</option><option value="failed">失败</option></select>
+              <select id="jobOwner"><option value="">全部身份</option><option value="guest">游客</option><option value="user">注册用户</option></select>
+              <button type="submit">筛选</button>
+            </form>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table jobs-table">
+              <thead><tr><th>任务</th><th>所有者</th><th>状态</th><th>空间</th><th>创建时间</th><th>操作</th></tr></thead>
+              <tbody id="jobRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="admin-sidebar">
+        <section class="admin-panel system-panel">
+          <p class="eyebrow">SERVICE</p><h2>服务配置</h2>
+          <dl id="serviceFacts" class="admin-facts"></dl>
+        </section>
+        <section class="admin-panel cleanup-panel">
+          <p class="eyebrow">CLEANUP</p><h2>游客数据清理</h2>
+          <p>只删除已经结束、且超过指定天数的游客任务。运行中的任务不会被删除。</p>
+          <label for="cleanupDays">保留天数<input id="cleanupDays" type="number" min="1" max="3650" value="30"></label>
+          <button id="cleanupButton" class="danger-button" type="button">清理过期游客任务</button>
+        </section>
+      </aside>
+    </section>
+  </main>
+  <script src="/static/admin.js" defer></script>
+</body>
+</html>

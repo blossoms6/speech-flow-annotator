@@ -78,6 +78,8 @@ def analyze_job(
     ]
     if transcript_result.source == "user-estimated":
         limitations.insert(0, "当前使用低置信度能量对齐；安装并启用自动转写可改善时间轴。")
+    if transcript_result.source == "whisper-reference-mismatch":
+        limitations.insert(0, "提供的文稿与音频自动转写差异过大，系统已忽略旧文稿并改用本次音频的转写结果。")
 
     progress(90, "rendering", "正在生成交互结果和导出数据。")
     result = AnalysisResult(

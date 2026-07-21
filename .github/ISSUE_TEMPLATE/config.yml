@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密安全漏洞报告
+    url: https://github.com/blossoms6/speech-flow-annotator/security/advisories/new
+    about: 请勿公开披露尚未修复的安全漏洞

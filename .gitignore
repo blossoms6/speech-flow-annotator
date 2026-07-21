@@ -6,10 +6,16 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+*.egg-info/
+build/
+dist/
 data/jobs/*
 !data/jobs/.gitkeep
+data/auth.db*
 models/
 .env
+.env.production
+backups/
 *.log
 .DS_Store
 Thumbs.db

@@ -13,6 +13,10 @@ class Settings:
     root: Path = ROOT
     jobs_dir: Path = Path(os.getenv("SFA_JOBS_DIR", ROOT / "data" / "jobs"))
     static_dir: Path = ROOT / "static"
+    auth_db_path: Path = Path(os.getenv("SFA_AUTH_DB", ROOT / "data" / "auth.db"))
+    secure_cookies: bool = os.getenv("SFA_SECURE_COOKIES", "false").lower() in {"1", "true", "yes"}
+    enable_docs: bool = os.getenv("SFA_ENABLE_DOCS", "true").lower() in {"1", "true", "yes"}
+    chrome_no_sandbox: bool = os.getenv("SFA_CHROME_NO_SANDBOX", "false").lower() in {"1", "true", "yes"}
     max_upload_mb: int = int(os.getenv("SFA_MAX_UPLOAD_MB", "250"))
     max_duration_seconds: int = int(os.getenv("SFA_MAX_DURATION_SECONDS", "1800"))
     worker_count: int = int(os.getenv("SFA_WORKERS", "1"))

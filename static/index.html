@@ -14,7 +14,12 @@
       <span class="brand-mark">SF</span>
       <span><b>Speech Flow</b><small>英语语流标注器 1.0</small></span>
     </a>
-    <div id="engineStatus" class="engine-status">正在检查分析引擎…</div>
+    <div class="header-actions">
+      <div id="engineStatus" class="engine-status">正在检查分析引擎…</div>
+      <a id="adminLink" class="admin-link" href="/admin" hidden>管理后台</a>
+      <span id="currentUsername" class="current-user">游客模式</span>
+      <button id="accountButton" class="logout-button login-button" type="button">登录 / 注册</button>
+    </div>
   </header>
 
   <main>
@@ -39,7 +44,8 @@
       </div>
 
       <label id="transcriptLabel" class="field-label" for="transcript">英文原文 <span>可选，但提供后更容易校正</span></label>
-      <textarea id="transcript" rows="6" placeholder="Paste the English transcript here…"></textarea>
+      <textarea id="transcript" rows="6" autocomplete="off" placeholder="Paste the English transcript here…"></textarea>
+      <div id="transcriptNotice" class="form-notice" hidden></div>
 
       <div class="settings-grid">
         <label class="toggle-row audio-only">

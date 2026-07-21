@@ -1,0 +1,49 @@
+name: 错误报告
+description: 报告可复现的软件问题
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 请先删除音频、账号、Cookie、日志中的私人或敏感信息。安全漏洞请通过 Security 页面私密报告。
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 实际发生了什么？你期望发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开……
+        2. 选择……
+        3. 点击……
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 使用模式
+      options:
+        - 音频分析（附原文）
+        - 音频分析（自动转写）
+        - 只有文稿
+        - 登录、管理或导出
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 运行环境
+      placeholder: Windows 11 / Python 3.12 / Chrome 126
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 已脱敏的日志或截图
+      render: shell

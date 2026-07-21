@@ -1,4 +1,4 @@
-const state = { jobId: null, result: null, selectedWord: null, selectedRange: null, loop: false, transcriptionAvailable: false, uploadFile: null, inputMode: "audio" };
+const state = { jobId: null, result: null, selectedWord: null, selectedRange: null, loop: false, transcriptionAvailable: false, uploadFile: null, inputMode: "audio", user: null };
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
@@ -12,6 +12,20 @@ function annotationName(type) {
   return ({pause:"停顿",phrase_boundary:"边界",prominence:"重音",rhythm:"节奏",intonation:"语调",weak_form:"弱读",linking:"连读",unreleased_stop:"失爆"})[type] || type;
 }
 
+function redirectToLogin() {
+  const next = `${location.pathname}${location.search}`;
+  location.replace(`/login?next=${encodeURIComponent(next)}`);
+}
+
+async function apiFetch(url, options) {
+  const response = await fetch(url, options);
+  if (response.status === 401) {
+    location.replace("/");
+    throw new Error("游客会话已失效，正在重新载入工作台。");
+  }
+  return response;
+}
+
 async function checkHealth() {
   try {
     const response = await fetch("/api/health"); const data = await response.json();
@@ -20,30 +34,53 @@ async function checkHealth() {
     status.textContent = data.transcription_available ? `转写引擎就绪 · ${data.default_model}` : "基础分析就绪 · 自动转写未安装";
     status.classList.add("ready");
     if (data.transcription_available) $("#autoTranscribe").checked = true;
+    const localVoice = $('#ttsEngine option[value="local"]');
+    if (localVoice && !data.local_tts_available) {
+      localVoice.disabled = true;
+      localVoice.textContent = "Windows 基础音 · 当前服务器不可用";
+      $("#ttsEngine").value = "neural";
+    }
   } catch { $("#engineStatus").textContent = "无法连接本地分析服务"; }
 }
 
 function setFile(file) {
   if (!file) return;
+  clearPreviousJobTranscript();
   state.uploadFile = file;
   $("#fileLabel").textContent = file.name;
   $("#fileMeta").textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB · 已准备分析`;
   $("#dropZone").classList.add("has-file");
 }
 
+function clearPreviousJobTranscript() {
+  const field = $("#transcript");
+  const current = field.value.trim();
+  const previous = state.result?.transcript?.trim();
+  if (!current || !previous || current !== previous) return false;
+  field.value = "";
+  const notice = $("#transcriptNotice");
+  notice.textContent = "已自动清除上一任务的文稿，防止新音频继续套用旧文本。需要校正文稿时可以重新粘贴。";
+  notice.hidden = false;
+  return true;
+}
+
 function setInputMode(mode) {
+  const previousMode = state.inputMode;
+  if (previousMode === "text" && mode === "audio") clearPreviousJobTranscript();
   state.inputMode = mode;
   $$(".mode-button").forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
   $("#uploadCard").classList.toggle("text-mode", mode === "text");
   $("#uploadCard .step-title h2").textContent = mode === "text" ? "准备英文文稿" : "准备音频";
   $("#uploadCard .step-title p").textContent = mode === "text" ? "不需要音频，生成标准朗读建议与合成参考音" : "支持 MP3、WAV、M4A、FLAC、MP4 和 WebM";
-  $("#transcriptLabel").innerHTML = mode === "text" ? "英文文稿 <span>必填 · 可输入句子、段落或短文</span>" : "英文原文 <span>可选，但提供后更容易校正</span>";
+  $("#transcriptLabel").innerHTML = mode === "text" ? "英文文稿 <span>必填 · 可输入句子、段落或短文</span>" : "英文原文 <span>可选 · 新音频不会沿用上一任务文稿</span>";
   $("#transcript").placeholder = mode === "text" ? "Paste the English passage to generate a standard reading guide…" : "Paste the English transcript here…";
   $("#analyzeButtonLabel").textContent = mode === "text" ? "生成朗读稿＋参考音频" : "开始分析";
 }
 
 async function submitJob() {
-  const file = state.uploadFile || $("#audioFile").files[0]; const transcript = $("#transcript").value.trim(); const auto = $("#autoTranscribe").checked;
+  const file = state.uploadFile || $("#audioFile").files[0];
+  if (state.inputMode === "audio" && file) clearPreviousJobTranscript();
+  const transcript = $("#transcript").value.trim(); const auto = $("#autoTranscribe").checked;
   const error = $("#formError"); error.hidden = true;
   if (state.inputMode === "text" && !transcript) { error.textContent = "请输入需要生成标准朗读稿的英文文稿。"; error.hidden = false; return; }
   if (state.inputMode === "audio" && !file) { error.textContent = "请先选择英文音频。"; error.hidden = false; return; }
@@ -52,14 +89,15 @@ async function submitJob() {
   const form = new FormData(); if (file && state.inputMode === "audio") form.append("audio", file); form.append("transcript", transcript); form.append("input_mode", state.inputMode); form.append("auto_transcribe", state.inputMode === "audio" && auto); form.append("model_name", $("#modelName").value); form.append("accent", $("#accent").value); form.append("tts_engine", $("#ttsEngine").value); form.append("device", "auto");
   $("#analyzeButton").disabled = true; $("#progressCard").hidden = false; $("#resultSection").hidden = true; $("#progressCard").scrollIntoView({behavior:"smooth", block:"center"});
   try {
-    const response = await fetch("/api/jobs", {method:"POST", body:form}); const data = await response.json();
+    const response = await apiFetch("/api/jobs", {method:"POST", body:form}); const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "提交失败"); state.jobId = data.id; await pollJob();
   } catch (reason) { showFailure(reason.message); }
 }
 
 async function pollJob() {
   while (true) {
-    const response = await fetch(`/api/jobs/${state.jobId}`); const job = await response.json();
+    const response = await apiFetch(`/api/jobs/${state.jobId}`); const job = await response.json();
+    if (!response.ok) throw new Error(job.detail || "读取任务状态失败。");
     $("#progressStage").textContent = job.stage === "loading_model" ? "正在加载转写模型" : job.stage === "transcribing" ? "正在转写音频" : job.stage === "text_planning" ? "正在规划标准朗读" : job.stage === "synthesizing" ? "正在生成参考音频" : job.stage === "annotation" ? "正在生成语流标注" : job.stage === "rendering" ? "正在整理结果" : state.inputMode === "text" ? "正在生成朗读稿" : "正在分析音频";
     $("#progressMessage").textContent = job.message; $("#progressBar").style.width = `${job.progress}%`; $("#progressPercent").textContent = `${job.progress}%`;
     if (job.status === "failed") { showFailure(job.error || "分析失败"); return; }
@@ -73,14 +111,15 @@ function showFailure(message) {
 }
 
 async function loadResult() {
-  const response = await fetch(`/api/jobs/${state.jobId}/result`); state.result = await response.json();
+  const response = await apiFetch(`/api/jobs/${state.jobId}/result`); state.result = await response.json();
+  if (!response.ok) throw new Error(state.result.detail || "读取分析结果失败。");
   if (new URLSearchParams(location.search).get("job") !== state.jobId) {
     history.replaceState(null, "", `/?job=${state.jobId}`);
   }
   const textMode = state.result.input_mode === "text" || state.result.transcript_source === "text-standard";
   const hasAudio = Boolean(state.result.audio);
-  state.inputMode = textMode ? "text" : "audio";
-  setInputMode(state.inputMode);
+  setInputMode(textMode ? "text" : "audio");
+  if (textMode) $("#transcript").value = state.result.transcript;
   $("#progressCard").hidden = true; $("#analyzeButton").disabled = false; $("#resultSection").hidden = false;
   $("#playerCard").hidden = !hasAudio;
   if (hasAudio) {
@@ -109,14 +148,18 @@ function renderTranscript() {
   const phraseEnds = new Set(state.result.phrases.map(p => p.end_word));
   state.result.words.forEach((word, index) => {
     const startAnnotations = starts[index] || []; const endAnnotations = ends[index] || [];
+    const linkFromPrevious = index > 0 ? (starts[index - 1] || []).find(item => item.type === "linking" && item.end_word === index) : null;
+    if (index > 0 && !linkFromPrevious && !phraseEnds.has(index - 1)) root.append(" ");
+    const unit = document.createElement("span"); unit.className = "word-unit";
+    if (linkFromPrevious) unit.insertAdjacentHTML("beforeend", `<span class="link-mark ${linkFromPrevious.confidence<.6?'confidence-low':''}">‿</span>`);
     const button = document.createElement("button"); button.className = "word"; button.dataset.index = index;
     if (startAnnotations.some(item => item.type === "prominence")) button.classList.add("stress");
-    button.textContent = word.text + word.punctuation_after; button.title = `${formatTime(word.start)}–${formatTime(word.end)}`; button.onclick = () => selectWord(index); root.append(button);
-    const weak = startAnnotations.find(item => item.type === "weak_form"); if (weak) root.insertAdjacentHTML("beforeend", `<span class="weak-mark ${weak.confidence<.6?'confidence-low':''}">${escapeHtml(weak.symbol)}</span>`);
-    const stop = startAnnotations.find(item => item.type === "unreleased_stop"); if (stop) root.insertAdjacentHTML("beforeend", `<sup class="stop-mark ${stop.confidence<.6?'confidence-low':''}">${escapeHtml(stop.symbol)}</sup>`);
-    const link = startAnnotations.find(item => item.type === "linking"); if (link) root.insertAdjacentHTML("beforeend", `<span class="link-mark ${link.confidence<.6?'confidence-low':''}">‿</span>`); else root.append(" ");
-    const tone = endAnnotations.find(item => item.type === "intonation"); if (tone) root.insertAdjacentHTML("beforeend", `<span class="tone-mark">${escapeHtml(tone.symbol)}</span>`);
-    const pause = endAnnotations.find(item => item.type === "pause" || item.type === "phrase_boundary"); if (pause) root.insertAdjacentHTML("beforeend", `<span class="pause-mark">${escapeHtml(pause.symbol)}</span>`);
+    button.textContent = word.text + word.punctuation_after; button.title = `${formatTime(word.start)}–${formatTime(word.end)}`; button.onclick = () => selectWord(index); unit.append(button);
+    const weak = startAnnotations.find(item => item.type === "weak_form"); if (weak) unit.insertAdjacentHTML("beforeend", `<span class="weak-mark ${weak.confidence<.6?'confidence-low':''}">${escapeHtml(weak.symbol)}</span>`);
+    const stop = startAnnotations.find(item => item.type === "unreleased_stop"); if (stop) unit.insertAdjacentHTML("beforeend", `<sup class="stop-mark ${stop.confidence<.6?'confidence-low':''}">${escapeHtml(stop.symbol)}</sup>`);
+    const tone = endAnnotations.find(item => item.type === "intonation"); if (tone) unit.insertAdjacentHTML("beforeend", `<span class="tone-mark">${escapeHtml(tone.symbol)}</span>`);
+    const pause = endAnnotations.find(item => item.type === "pause" || item.type === "phrase_boundary"); if (pause) unit.insertAdjacentHTML("beforeend", `<span class="pause-mark">${escapeHtml(pause.symbol)}</span>`);
+    root.append(unit);
     if (phraseEnds.has(index)) root.append(document.createElement("br"));
   });
 }
@@ -182,22 +225,49 @@ function drawContours() {
 
 async function reanalyze() {
   const transcript=$("#correctedTranscript").value.trim();if(!transcript)return;$("#resultSection").hidden=true;$("#progressCard").hidden=false;$("#progressBar").style.width="0%";
-  const response=await fetch(`/api/jobs/${state.jobId}/reanalyze`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({transcript,accent:$("#accent").value})});if(!response.ok){const data=await response.json();showFailure(data.detail||"重新分析失败");return;}await pollJob();
+  const response=await apiFetch(`/api/jobs/${state.jobId}/reanalyze`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({transcript,accent:$("#accent").value})});if(!response.ok){const data=await response.json();showFailure(data.detail||"重新分析失败");return;}await pollJob();
+}
+
+async function logout() {
+  $("#accountButton").disabled = true;
+  try { await fetch("/api/auth/logout", {method: "POST"}); } finally { location.replace("/login"); }
+}
+
+function accountAction() {
+  if (state.user) logout(); else redirectToLogin();
 }
 
 $("#dropZone").onclick=()=>$("#audioFile").click(); $("#dropZone").onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();$("#audioFile").click();}}; $("#audioFile").onchange=event=>setFile(event.target.files[0]);
 ['dragenter','dragover'].forEach(name=>$("#dropZone").addEventListener(name,event=>{event.preventDefault();$("#dropZone").classList.add('dragover')})); ['dragleave','drop'].forEach(name=>$("#dropZone").addEventListener(name,event=>{event.preventDefault();$("#dropZone").classList.remove('dragover')})); $("#dropZone").addEventListener('drop',event=>setFile(event.dataTransfer.files[0]));
 $("#analyzeButton").onclick=submitJob; $("#reanalyzeButton").onclick=reanalyze; $("#playbackRate").onchange=event=>$("#audioPlayer").playbackRate=Number(event.target.value); $("#loopButton").onclick=()=>{state.loop=!state.loop;$("#loopButton").classList.toggle('active',state.loop);};
+$("#accountButton").onclick=accountAction;
 $$(".mode-button").forEach(button => button.onclick = () => setInputMode(button.dataset.mode));
+$("#transcript").addEventListener("input", () => { $("#transcriptNotice").hidden = true; });
 $("#audioPlayer").addEventListener('timeupdate',event=>{if(state.loop&&state.selectedRange&&event.target.currentTime>=state.selectedRange.end)event.target.currentTime=state.selectedRange.start;});
 $$('[data-feature]').forEach(input=>input.onchange=()=>document.body.classList.toggle(`hide-${input.dataset.feature}`,!input.checked)); window.addEventListener('resize',()=>{if(state.result)drawContours()});
 
 async function boot() {
+  try {
+    const response = await fetch("/api/auth/me", {cache: "no-store"});
+    const data = await response.json();
+    state.user = data.authenticated ? data.user : null;
+    $("#currentUsername").textContent = state.user ? state.user.username : "游客模式";
+    $("#currentUsername").title = state.user ? `当前账户：${state.user.username}` : "当前以游客身份使用";
+    $("#accountButton").textContent = state.user ? "退出" : "登录 / 注册";
+    $("#accountButton").classList.toggle("login-button", !state.user);
+    $("#adminLink").hidden = !state.user?.is_admin;
+  } catch {
+    state.user = null;
+    $("#currentUsername").textContent = "游客模式";
+  }
   await checkHealth();
   const jobId = new URLSearchParams(location.search).get("job");
   if (jobId && /^[a-f0-9]{32}$/.test(jobId)) {
     state.jobId = jobId;
-    try { await loadResult(); } catch { /* The normal upload screen remains available. */ }
+    try { await loadResult(); } catch {
+      state.jobId = null;
+      history.replaceState(null, "", "/");
+    }
   }
 }
 boot();

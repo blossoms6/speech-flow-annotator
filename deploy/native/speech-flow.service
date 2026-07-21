@@ -1,0 +1,24 @@
+[Unit]
+Description=Speech Flow Annotator
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=speechflow
+Group=speechflow
+WorkingDirectory=/opt/speech-flow
+EnvironmentFile=/opt/speech-flow/.env.production
+Environment=HOME=/var/lib/speech-flow
+ExecStart=/opt/speech-flow/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8765 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/speech-flow
+
+[Install]
+WantedBy=multi-user.target
