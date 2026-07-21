@@ -1,5 +1,11 @@
 # Speech Flow Annotator 1.0
 
+[![CI](https://github.com/blossoms6/speech-flow-annotator/actions/workflows/ci.yml/badge.svg)](https://github.com/blossoms6/speech-flow-annotator/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+
+> 把英语音频或英文文稿转换为可播放、可交互、可导出的语流学习稿。
+
 一个本地运行的英语音频语流标注器。上传英文音频后，应用会生成可点击播放的文稿，并分析：
 
 - 主要重音和次重音
@@ -12,7 +18,19 @@
 
 应用同时支持“只有文稿”模式：无需上传音频，系统会根据 CMU 标准发音词典、词重音、句型和自然朗读规则生成标准英语朗读稿。默认使用 Microsoft Edge 在线神经语音生成更自然、连贯的参考音并取得逐词边界；网络不可用时自动退回 Windows 本地英语声音。文本模式的结果会明确标明声音来源，不会冒充真人原音检测。
 
+## 功能概览
+
+| 输入方式 | 主要输出 |
+| --- | --- |
+| 英文音频 + 原文 | 逐词时间轴、重音、停顿、节奏、语调及实验性语流候选 |
+| 英文音频自动转写 | Whisper 转写、逐词时间轴与语流分析 |
+| 只有英文文稿 | 标准朗读标注稿、自然参考音频与逐词对齐 |
+
+分析结果支持逐词点击播放，并可导出 PDF、HTML、Markdown、SRT 和 JSON。游客无需注册即可使用；注册用户可保留自己的任务，管理员可通过独立后台管理用户和数据。
+
 ## 快速开始
+
+运行环境：Python 3.11 或更高版本。建议先创建虚拟环境；自动转写模型和 Windows 离线语音均为可选功能。
 
 ### 方式一：基础模式
 
@@ -154,6 +172,15 @@ python -m pytest
 ```
 
 测试使用程序生成的合成音频，不需要下载 Whisper 模型。
+
+GitHub Actions 会在每次推送及 Pull Request 时使用 Python 3.11 和 3.12 自动运行完整测试。
+
+## 参与贡献与安全
+
+- 提交问题或改进代码前，请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- 版本变化记录在 [CHANGELOG.md](CHANGELOG.md)。
+- 安全漏洞请不要发布到公开 Issue，报告方式见 [SECURITY.md](SECURITY.md)。
+- 公开仓库不等于开源授权；当前使用条款见 [LICENSE](LICENSE)。
 
 ## 已知限制
 

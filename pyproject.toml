@@ -1,7 +1,12 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "speech-flow-annotator"
 version = "1.0.0"
 description = "Local English speech-flow annotation web application"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1",
@@ -15,6 +20,7 @@ dependencies = [
   "cmudict>=1.1,<2",
   "edge-tts>=7.2.8,<8",
   "argon2-cffi>=25.1,<26",
+  "weasyprint>=69,<70",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +30,13 @@ transcription = [
   "ctranslate2>=4.6,<4.7",
 ]
 test = ["pytest>=8,<10", "httpx>=0.27,<1"]
+
+[project.urls]
+Repository = "https://github.com/blossoms6/speech-flow-annotator"
+Issues = "https://github.com/blossoms6/speech-flow-annotator/issues"
+
+[tool.setuptools]
+packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
