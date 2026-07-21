@@ -184,5 +184,5 @@ def test_text_only_standard_reading_job_as_guest(guest_client: TestClient) -> No
         assert result["audio"] is None
         assert result["summary"].get("generated_voice") is None
         assert "Windows System.Speech" in result["limitations"][0]
-        assert guest_client.get(f"/api/jobs/{job_id}/audio").status_code == 404
+        assert guest_client.get(f"/api/jobs/{job_id}/audio").status_code == 409
     assert guest_client.get(f"/api/jobs/{job_id}/export/html").status_code == 200
